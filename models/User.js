@@ -2,11 +2,10 @@ import mongoose from "mongoose";
 
 const UserSchema = new mongoose.Schema(
   {
-    clerkId: { type: String, required: true, unique: true }, // 🌟 Clerk ki unique ID
+    clerkId: { type: String, required: true, unique: true },
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     avatar: { type: String, default: "https://github.com/shadcn.png" },
-    // Dashboard par dikhane ke liye comparisons ki list
     comparisons: [{ type: mongoose.Schema.Types.ObjectId, ref: "Comparison" }],
   },
   { timestamps: true },

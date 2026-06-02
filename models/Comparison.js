@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const ComparisonSchema = new mongoose.Schema(
   {
     userId: {
-      type: String, // 🌟 Clerk User ID hamesha String hoti hai
+      type: String,
       required: true,
       index: true,
     },

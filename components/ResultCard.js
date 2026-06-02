@@ -1,64 +1,87 @@
-export default function ResultCard({ data }) {
+export default function ResultCard({ data, onDelete, id }) {
   if (!data) return null;
 
+  const badge =
+    data.verdict === "Strong Match"
+      ? "bg-green-100 text-green-700"
+      : data.verdict === "Probable Match"
+        ? "bg-blue-100 text-blue-700"
+        : data.verdict === "Inconclusive"
+          ? "bg-yellow-100 text-yellow-700"
+          : "bg-red-100 text-red-700";
+
   return (
-    // Card Container: Aesthetic cream background with soft border and shadow
-    <div className='bg-[#fcfbfa]/90 backdrop-blur-sm border border-white/60 rounded-[32px] shadow-2xl p-8 space-y-8 max-w-md mx-auto transition-all hover:scale-[1.01]'>
-      {/* Header with Custom Blue Theme */}
-      <div className='text-center space-y-1'>
-        <h1 className='text-3xl font-bold tracking-tight text-[#3b63b8]'>
+    <div className='w-full max-w-lg mx-auto bg-white/40 backdrop-blur-2xl border border-white/50 rounded-[40px] shadow-[0_20px_50px_rgba(0,0,0,0.08)] p-8'>
+      <div className='text-center mb-8'>
+        <span className='px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-[#3b63b8] text-[10px] font-bold uppercase tracking-[0.2em]'>
+          Verified AI Report
+        </span>
+
+        <h1 className='text-3xl font-extrabold text-slate-800 mt-3'>
           Analysis Result
         </h1>
-        <div className='w-12 h-1 bg-amber-700/30 mx-auto rounded-full'></div>
       </div>
 
-      {/* Main Score Section: Soft Inner Shadow & Gradient Text */}
-      <div className='bg-[#f4f0ea] border border-white/40 p-8 rounded-[24px] flex flex-col items-center justify-center shadow-inner'>
-        <div className='text-7xl font-black text-[#3b63b8] drop-shadow-sm'>
-          {data.score}%
+      <div className='flex flex-col items-center mb-6'>
+        <div className='w-40 h-40 rounded-full border-[6px] border-blue-50 flex flex-col items-center justify-center'>
+          <span className='text-5xl font-black text-slate-800'>
+            {data.score}%
+          </span>
+          <span className='text-[10px] text-slate-400 font-bold uppercase'>
+            Similarity
+          </span>
         </div>
-        <div className='mt-2 px-4 py-1 bg-emerald-50 text-emerald-700 rounded-full text-sm font-semibold border border-emerald-100'>
-          {data.verdict}
+
+        <div className='mt-4'>
+          <span className={`px-4 py-2 rounded-full text-xs font-bold ${badge}`}>
+            {data.verdict}
+          </span>
         </div>
       </div>
 
-      {/* Justification Box: Glass effect with subtle blue tint */}
-      <div className='bg-blue-50/40 p-5 rounded-2xl border border-blue-100/50 relative overflow-hidden'>
-        {/* Subtle decorative accent */}
-        <div className='absolute top-0 left-0 w-1 h-full bg-[#4f6bf2]/40'></div>
+      <div className='bg-blue-900/5 p-6 rounded-[32px] mb-8 border border-blue-900/10'>
+        <h3 className='font-bold text-slate-800 mb-2'>Examiner Observation</h3>
 
-        <h3 className='font-bold text-[#3b63b8] text-xs uppercase tracking-wider mb-2'>
-          AI Expert Justification
-        </h3>
         <p className='text-slate-600 text-sm leading-relaxed'>
-          {data.justification || "No justification available."}
+          {data.justification}
         </p>
       </div>
 
-      {/* Stats Grid: Soft Bento-style boxes */}
-      <div className='grid grid-cols-3 gap-4'>
-        {[
-          { label: "Stroke", value: data.stroke },
-          { label: "Slant", value: data.slant },
-          { label: "Spacing", value: data.spacing },
-        ].map((m) => (
-          <div
-            key={m.label}
-            className='bg-white/60 p-4 rounded-2xl text-center border border-white shadow-sm transition-hover hover:bg-white'>
-            <p className='text-[10px] font-bold text-slate-400 uppercase tracking-tighter mb-1'>
-              {m.label}
-            </p>
-            <p className='font-bold text-slate-800 text-sm'>{m.value || "-"}</p>
-          </div>
-        ))}
+      <div className='grid grid-cols-3 gap-3 mb-6'>
+        <div className='bg-white/60 p-4 rounded-3xl border text-center'>
+          <p className='text-[9px] font-extrabold text-slate-400 uppercase'>
+            Stroke
+          </p>
+          <p className='font-bold text-slate-700 text-[11px] mt-1'>
+            {data.stroke ?? "0%"}
+          </p>
+        </div>
+
+        <div className='bg-white/60 p-4 rounded-3xl border text-center'>
+          <p className='text-[9px] font-extrabold text-slate-400 uppercase'>
+            HOG
+          </p>
+          <p className='font-bold text-slate-700 text-[11px] mt-1'>
+            {data.slant ?? "0%"}
+          </p>
+        </div>
+
+        <div className='bg-white/60 p-4 rounded-3xl border text-center'>
+          <p className='text-[9px] font-extrabold text-slate-400 uppercase'>
+            Structure
+          </p>
+          <p className='font-bold text-slate-700 text-[11px] mt-1'>
+            {data.spacing ?? "0%"}
+          </p>
+        </div>
       </div>
 
-      {/* Footer Branding (Optional but adds aesthetic touch) */}
-      <div className='pt-4 text-center'>
-        <span className='text-[10px] text-slate-400 uppercase tracking-[0.2em] font-medium'>
-          Verified by AI Engine
-        </span>
-      </div>
+      <button
+        onClick={() => onDelete(id)}
+        className='w-full py-3 text-xs font-bold text-rose-500 hover:bg-rose-50 rounded-2xl'>
+        Delete Report
+      </button>
     </div>
   );
 }
+``;

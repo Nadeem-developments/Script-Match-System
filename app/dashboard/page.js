@@ -1,14 +1,17 @@
+"use client"; // Hook use karne ke liye zaruri hai
+
 import Link from "next/link";
+import { useUser } from "@clerk/nextjs";
 
 export default function Dashboard() {
+  const { user, isLoaded } = useUser();
+
   return (
     <div className='space-y-6 animate-fade-in max-w-7xl mx-auto px-4 py-6'>
-      {/* Back to Home Link */}
       <div className='flex items-center'>
         <Link
           href='/'
           className='group flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors duration-200'>
-          {/* SVG Arrow icon with sliding micro-interaction */}
           <svg
             xmlns='http://www.w3.org/2000/svg'
             fill='none'
@@ -26,16 +29,14 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* 1. Welcome Hero Banner: Matching the soft web texture */}
       <div className='bg-[#fcfbfa]/90 backdrop-blur-sm border border-white/60 p-8 rounded-[32px] shadow-xl relative overflow-hidden'>
-        {/* Subtle decorative accent lines matching the paper aura */}
         <div className='absolute top-0 right-0 w-32 h-32 bg-blue-100/30 rounded-full blur-2xl -translate-y-10 translate-x-10 pointer-events-none'></div>
         <div className='absolute bottom-0 left-1/3 w-24 h-24 bg-amber-100/20 rounded-full blur-xl pointer-events-none'></div>
 
         <div className='relative z-10 space-y-2'>
           <div className='w-12 h-1 bg-amber-700/30 rounded-full mb-3'></div>
           <h1 className='text-3xl md:text-4xl font-bold tracking-tight text-[#3b63b8]'>
-            Hi, Username!
+            Hi, {isLoaded && user ? user.firstName : "User"}!
           </h1>
           <p className='text-slate-600 max-w-xl text-sm md:text-base leading-relaxed'>
             Welcome to the Handwriting Matching System. Upload script samples to
@@ -44,9 +45,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 2. Action Bento Grid Layout */}
       <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-        {/* Action Card 1: Compare New Scripts */}
         <div className='bg-[#fcfbfa]/90 backdrop-blur-sm border border-white/60 rounded-[28px] p-8 shadow-md hover:shadow-xl transition-all duration-300 hover:scale-[1.01] flex flex-col justify-between group'>
           <div>
             <div className='w-12 h-12 rounded-2xl bg-[#f4f0ea] flex items-center justify-center text-2xl mb-5 shadow-inner border border-white/40 group-hover:scale-110 transition-transform duration-300'>
@@ -68,7 +67,6 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        {/* Action Card 2: View Recent Reports */}
         <div className='bg-[#fcfbfa]/90 backdrop-blur-sm border border-white/60 rounded-[28px] p-8 shadow-md hover:shadow-xl transition-all duration-300 hover:scale-[1.01] flex flex-col justify-between group'>
           <div>
             <div className='w-12 h-12 rounded-2xl bg-[#f4f0ea] flex items-center justify-center text-2xl mb-5 shadow-inner border border-white/40 group-hover:scale-110 transition-transform duration-300'>

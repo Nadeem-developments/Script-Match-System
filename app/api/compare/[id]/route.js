@@ -12,7 +12,6 @@ export async function DELETE(_request, { params }) {
     await dbConnect();
     const { id } = params;
 
-    // Sirf wahi record delete ho jo is user ka ho
     const deletedDocument = await Comparison.findOneAndDelete({
       _id: id,
       userId,
