@@ -1,9 +1,9 @@
 import { Webhook } from "svix";
 import { headers } from "next/headers";
 
-// 👇 In dono lines ko change karke aise likhein
-import dbConnect from "../../../../lib/dbConnect";
-import User from "../../../../models/User";
+// ✅ Ab yeh bilkul sahi kaam karega
+import dbConnect from "@/lib/dbConnect";
+import User from "@/models/User";
 
 import { NextResponse } from "next/server";
 
