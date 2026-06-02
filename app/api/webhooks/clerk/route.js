@@ -3,8 +3,8 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 // ✅ Sahi Relative Paths (4 levels up from /app/api/webhooks/clerk)
-import dbConnect from "../../../../lib/dbConnect";
-import User from "../../../../models/User";
+import dbConnect from "@/lib/dbConnect";
+import User from "@/models/User";
 
 export async function POST(req) {
   // 1. Secret key check kar rahe hain
