@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 // ✅ Sahi Relative Paths (4 levels up from /app/api/webhooks/clerk)
-import dbConnect from "@/lib/dbConnect";
+import dbConnect from "@/lib/db";
 import User from "@/models/User";
 
 export async function POST(req) {
