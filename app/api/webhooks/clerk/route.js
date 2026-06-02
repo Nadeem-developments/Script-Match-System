@@ -1,7 +1,10 @@
 import { Webhook } from "svix";
 import { headers } from "next/headers";
-import dbConnect from "@/lib/dbConnect"; // 👈 Path check kar lein agar different ho
-import User from "@/models/User"; // 👈 Path check kar lein agar different ho
+
+// 👇 In dono lines ko change karke aise likhein
+import dbConnect from "../../../../lib/dbConnect";
+import User from "../../../../models/User";
+
 import { NextResponse } from "next/server";
 
 export async function POST(req) {
