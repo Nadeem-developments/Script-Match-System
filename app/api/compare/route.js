@@ -1,21 +1,45 @@
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 import dbConnect from "@/lib/db";
 import Comparison from "@/models/Comparison";
 import { auth } from "@clerk/nextjs/server";
-import sharp from "sharp";
+
+export const runtime = "nodejs";
 
 function decodeBase64Image(base64String) {
   try {
     if (!base64String || typeof base64String !== "string") return null;
 
-    if (base64String.includes(",")) {
-      base64String = base64String.split(",")[1];
+    let input = base64String.trim();
+
+    if (input.includes(",")) {
+      input = input.split(",")[1];
     }
 
-    return Buffer.from(base64String, "base64");
-  } catch {
+    const buffer = Buffer.from(input, "base64");
+
+    if (!buffer.length) return null;
+
+    return buffer;
+  } catch (err) {
     return null;
   }
+}
+
+async function normalizeImage(buffer) {
+  const { data } = await sharp(buffer, { failOnError: false })
+    .rotate()
+    .resize({
+      width: 1200,
+      height: 1200,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .removeAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  return data;
 }
 
 function rgbToHsv(r, g, b) {
@@ -48,10 +72,7 @@ function rgbToHsv(r, g, b) {
 }
 
 async function getHistogram(buffer) {
-  const { data } = await sharp(buffer)
-    .resize(300, 300, { fit: "fill" })
-    .raw()
-    .toBuffer({ resolveWithObject: true });
+  const data = await normalizeImage(buffer);
 
   const binsH = 50;
   const binsS = 60;
@@ -72,11 +93,11 @@ async function getHistogram(buffer) {
 function compareHistCorrelation(a, b) {
   const n = a.length;
 
-  let sumA = 0,
-    sumB = 0,
-    sumASq = 0,
-    sumBSq = 0,
-    pSum = 0;
+  let sumA = 0;
+  let sumB = 0;
+  let sumASq = 0;
+  let sumBSq = 0;
+  let pSum = 0;
 
   for (let i = 0; i < n; i++) {
     sumA += a[i];
@@ -113,8 +134,10 @@ function buildResponse(score) {
 export async function GET(req) {
   try {
     const { userId } = await auth();
-    if (!userId)
+
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     await dbConnect();
 
@@ -126,10 +149,10 @@ export async function GET(req) {
       return NextResponse.json({ success: true, data });
     }
 
-    // LIST
     const data = await Comparison.find({ userId }).sort({ createdAt: -1 });
     return NextResponse.json({ success: true, data });
   } catch (err) {
+    console.error("GET /api/compare error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
@@ -137,8 +160,10 @@ export async function GET(req) {
 export async function POST(req) {
   try {
     const { userId } = await auth();
-    if (!userId)
+
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     await dbConnect();
 
@@ -173,8 +198,12 @@ export async function POST(req) {
       data: saved,
     });
   } catch (err) {
+    console.error("POST /api/compare error:", err);
     return NextResponse.json(
-      { error: "Server error", detail: err.message },
+      {
+        error: "Server error",
+        detail: err?.message || "Unknown error",
+      },
       { status: 500 },
     );
   }

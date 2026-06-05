@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function UploadPage() {
@@ -13,31 +13,140 @@ export default function UploadPage() {
   const [showCamera, setShowCamera] = useState(false);
   const [activeDoc, setActiveDoc] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [processingImage, setProcessingImage] = useState(false);
 
   const videoRef = useRef(null);
+  const cameraStreamRef = useRef(null);
 
-  // =========================
-  // IMAGE COMPRESSOR (IMPORTANT)
-  // =========================
-  const compressImage = (base64, quality = 0.6) => {
-    return new Promise((resolve) => {
+  const stopCamera = () => {
+    try {
+      const stream =
+        cameraStreamRef.current || videoRef.current?.srcObject || null;
+
+      if (stream && typeof stream.getTracks === "function") {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+
+      cameraStreamRef.current = null;
+      setShowCamera(false);
+    } catch (err) {
+      console.error("stopCamera error:", err);
+      setShowCamera(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => stopCamera();
+  }, []);
+
+  useEffect(() => {
+    if (!showCamera) return;
+
+    const attach = () => {
+      if (videoRef.current && cameraStreamRef.current) {
+        videoRef.current.srcObject = cameraStreamRef.current;
+        videoRef.current.play().catch(() => {});
+      }
+    };
+
+    const id = requestAnimationFrame(attach);
+    return () => cancelAnimationFrame(id);
+  }, [showCamera]);
+
+  const compressImageSource = (
+    source,
+    {
+      maxWidth = 1024,
+      maxHeight = 1024,
+      quality = 0.72,
+      mimeType = "image/jpeg",
+    } = {},
+  ) => {
+    return new Promise((resolve, reject) => {
       const img = new Image();
-      img.src = base64;
 
       img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const size = 600;
+        try {
+          const width = img.naturalWidth || img.width;
+          const height = img.naturalHeight || img.height;
 
-        canvas.width = size;
-        canvas.height = size;
+          const scale = Math.min(maxWidth / width, maxHeight / height, 1);
+          const targetWidth = Math.max(1, Math.round(width * scale));
+          const targetHeight = Math.max(1, Math.round(height * scale));
 
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, size, size);
+          const canvas = document.createElement("canvas");
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
 
-        const compressed = canvas.toDataURL("image/jpeg", quality);
-        resolve(compressed);
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            reject(new Error("Canvas not available"));
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+          const output = canvas.toDataURL(mimeType, quality);
+          resolve(output);
+        } catch (err) {
+          reject(err);
+        }
       };
+
+      img.onerror = () => reject(new Error("Could not process image"));
+      img.src = source;
     });
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+
+    if (!file) return;
+
+    try {
+      setProcessingImage(true);
+
+      const reader = new FileReader();
+
+      reader.onload = async (ev) => {
+        try {
+          const raw = ev.target?.result;
+          if (typeof raw !== "string") {
+            throw new Error("Invalid image file");
+          }
+
+          const compressed = await compressImageSource(raw, {
+            maxWidth: 1024,
+            maxHeight: 1024,
+            quality: 0.72,
+          });
+
+          if (step === 1) setDoc1(compressed);
+          else setDoc2(compressed);
+        } catch (err) {
+          console.error(err);
+          alert(err.message || "Image processing failed");
+        } finally {
+          setProcessingImage(false);
+        }
+      };
+
+      reader.onerror = () => {
+        setProcessingImage(false);
+        alert("File read failed");
+      };
+
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+      setProcessingImage(false);
+      alert("Image upload failed");
+    }
   };
 
   // =========================
@@ -47,93 +156,122 @@ export default function UploadPage() {
     setActiveDoc(docNum);
 
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        alert("Camera is not supported on this device/browser");
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
+        video: {
+          facingMode: { ideal: "environment" },
+        },
+        audio: false,
       });
 
+      cameraStreamRef.current = stream;
       setShowCamera(true);
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
     } catch (err) {
-      alert("Camera access denied!");
+      console.error("Camera error:", err);
+      alert("Camera access denied or unavailable!");
     }
   };
 
   // =========================
-  // CAPTURE IMAGE (MOBILE SAFE)
+  // CAPTURE IMAGE
   // =========================
   const captureImage = async () => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 600;
-    canvas.height = 600;
+    try {
+      const video = videoRef.current;
+      if (!video) {
+        alert("Camera not ready");
+        return;
+      }
 
-    const ctx = canvas.getContext("2d");
+      const vw = video.videoWidth || 1280;
+      const vh = video.videoHeight || 720;
 
-    ctx.drawImage(videoRef.current, 0, 0, 600, 600);
+      const maxSide = 1024;
+      const scale = Math.min(maxSide / vw, maxSide / vh, 1);
+      const canvasWidth = Math.max(1, Math.round(vw * scale));
+      const canvasHeight = Math.max(1, Math.round(vh * scale));
 
-    let image = canvas.toDataURL("image/jpeg", 0.7);
+      const canvas = document.createElement("canvas");
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
 
-    // 🔥 compress again (fix mobile network error)
-    image = await compressImage(image, 0.5);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        alert("Canvas not supported");
+        return;
+      }
 
-    if (activeDoc === 1) setDoc1(image);
-    else setDoc2(image);
+      ctx.drawImage(video, 0, 0, canvasWidth, canvasHeight);
 
-    // stop camera stream
-    const stream = videoRef.current?.srcObject;
-    if (stream) stream.getTracks().forEach((t) => t.stop());
+      const rawImage = canvas.toDataURL("image/jpeg", 0.85);
 
-    setShowCamera(false);
+      const compressed = await compressImageSource(rawImage, {
+        maxWidth: 1024,
+        maxHeight: 1024,
+        quality: 0.72,
+      });
+
+      if (activeDoc === 1) setDoc1(compressed);
+      else setDoc2(compressed);
+
+      stopCamera();
+    } catch (err) {
+      console.error("captureImage error:", err);
+      alert("Could not capture image");
+    }
   };
 
   // =========================
   // RUN ANALYSIS
   // =========================
   const handleRunAnalysis = async () => {
+    if (!doc1 || !doc2) {
+      alert("Please upload both documents");
+      return;
+    }
+
     setLoading(true);
+    setStep(3);
 
     try {
-      // safety check (VERY IMPORTANT)
-      if (!doc1 || !doc2) {
-        alert("Please upload both documents");
-        setLoading(false);
-        return;
-      }
-
       const res = await fetch("/api/compare", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           img1Url: doc1,
           img2Url: doc2,
         }),
       });
 
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(json.error || "Network Error");
+      }
 
       if (json.success && json.data?._id) {
         router.push(`/results?id=${json.data._id}`);
-      } else {
-        alert(json.error || "Analysis failed");
-        setStep(1);
+        return;
       }
+
+      throw new Error(json.error || "Analysis failed");
     } catch (err) {
       console.error(err);
-      alert("Network Error (Try again)");
-      setStep(1);
+      alert(err.message || "Network Error (Try again)");
+      setStep(2);
     } finally {
       setLoading(false);
     }
   };
 
-  // =========================
-  // UI
-  // =========================
   return (
     <div className='max-w-2xl mx-auto p-6 mt-10'>
-      {/* STEP BAR */}
       <div className='flex gap-2 mb-10'>
         {[1, 2, 3].map((i) => (
           <div
@@ -146,7 +284,6 @@ export default function UploadPage() {
       </div>
 
       <div className='bg-white/40 backdrop-blur-3xl border p-10 rounded-[48px] shadow-2xl min-h-[500px]'>
-        {/* CAMERA VIEW */}
         {showCamera ? (
           <div className='space-y-4'>
             <video
@@ -156,29 +293,39 @@ export default function UploadPage() {
               className='w-full aspect-square object-cover bg-black rounded-3xl'
             />
 
-            <button
-              onClick={captureImage}
-              className='w-full py-4 bg-blue-600 text-white rounded-2xl font-bold'>
-              Capture Document
-            </button>
+            <div className='grid grid-cols-2 gap-3'>
+              <button
+                onClick={captureImage}
+                className='w-full py-4 bg-blue-600 text-white rounded-2xl font-bold'>
+                Capture Document
+              </button>
+
+              <button
+                onClick={stopCamera}
+                className='w-full py-4 bg-slate-200 text-slate-900 rounded-2xl font-bold'>
+                Cancel
+              </button>
+            </div>
           </div>
         ) : (
           step < 3 && (
             <div className='space-y-8'>
-              {/* TITLE */}
               <h2 className='text-3xl font-black text-center'>
                 {step === 1
                   ? "Step 1: Baseline Sample"
                   : "Step 2: Comparison Target"}
               </h2>
 
-              {/* PREVIEW */}
               <div className='grid grid-cols-2 gap-4'>
                 <div className='text-center space-y-2'>
                   <p className='text-xs font-bold uppercase'>Baseline</p>
                   <div className='aspect-square bg-slate-100 rounded-3xl overflow-hidden flex items-center justify-center'>
                     {doc1 ? (
-                      <img src={doc1} className='w-full h-full object-cover' />
+                      <img
+                        src={doc1}
+                        alt='Baseline'
+                        className='w-full h-full object-cover'
+                      />
                     ) : (
                       <span className='text-slate-300'>Empty</span>
                     )}
@@ -189,7 +336,11 @@ export default function UploadPage() {
                   <p className='text-xs font-bold uppercase'>Target</p>
                   <div className='aspect-square bg-slate-100 rounded-3xl overflow-hidden flex items-center justify-center'>
                     {doc2 ? (
-                      <img src={doc2} className='w-full h-full object-cover' />
+                      <img
+                        src={doc2}
+                        alt='Target'
+                        className='w-full h-full object-cover'
+                      />
                     ) : (
                       <span className='text-slate-300'>Empty</span>
                     )}
@@ -197,42 +348,34 @@ export default function UploadPage() {
                 </div>
               </div>
 
-              {/* ACTIONS */}
               <div className='grid grid-cols-2 gap-4'>
-                {/* FILE UPLOAD */}
                 <label className='bg-white py-4 rounded-2xl border flex flex-col items-center cursor-pointer'>
                   📁
-                  <span className='text-xs font-bold'>Upload</span>
+                  <span className='text-xs font-bold'>
+                    {processingImage ? "Optimizing..." : "Upload"}
+                  </span>
                   <input
                     type='file'
                     className='hidden'
                     accept='image/*'
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-
-                      const reader = new FileReader();
-                      reader.onload = (ev) => {
-                        if (step === 1) setDoc1(ev.target.result);
-                        else setDoc2(ev.target.result);
-                      };
-                      reader.readAsDataURL(file);
-                    }}
+                    onChange={handleFileChange}
+                    disabled={processingImage || loading}
                   />
                 </label>
 
-                {/* CAMERA */}
                 <button
                   onClick={() => startCamera(step)}
-                  className='bg-white py-4 rounded-2xl border flex flex-col items-center'>
+                  className='bg-white py-4 rounded-2xl border flex flex-col items-center'
+                  disabled={processingImage || loading}>
                   📸
                   <span className='text-xs font-bold'>Camera</span>
                 </button>
               </div>
 
-              {/* NEXT BUTTON */}
               <button
-                disabled={step === 1 ? !doc1 : !doc2 || loading}
+                disabled={
+                  (step === 1 ? !doc1 : !doc2) || loading || processingImage
+                }
                 onClick={() => (step === 1 ? setStep(2) : handleRunAnalysis())}
                 className='w-full py-5 bg-slate-900 text-white rounded-2xl font-bold disabled:opacity-50'>
                 {loading
@@ -245,7 +388,6 @@ export default function UploadPage() {
           )
         )}
 
-        {/* LOADING SCREEN */}
         {loading && step === 3 && (
           <div className='py-20 text-center'>
             <div className='w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto' />
