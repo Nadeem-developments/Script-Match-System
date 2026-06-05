@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import ResultCard from "@/components/ResultCard";
 
 function ResultsContent() {
@@ -16,10 +16,10 @@ function ResultsContent() {
   useEffect(() => {
     if (!id) return;
 
-    fetch(`/api/compare?id=${id}`)
-      .then((res) => res.json())
-      .then((json) => {
-        console.log("API RESPONSE:", json);
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/compare?id=${id}`);
+        const json = await res.json();
 
         if (json.success && json.data) {
           const r = json.data;
@@ -28,41 +28,29 @@ function ResultsContent() {
             score: r.similarityScore ?? 0,
             verdict: r.verdict ?? "Unknown",
 
-            // ✅ FIXED MAPPING (NO N/A anymore)
-            stroke:
-              r.metrics?.strokePatternSimilarity ??
-              r.metrics?.strokePathConsistency ??
-              r.metrics?.strokeSimilarity ??
-              "0%",
+            stroke: r.metrics?.strokePathConsistency ?? "0%",
 
-            slant:
-              r.metrics?.hogSimilarity ??
-              r.metrics?.slantAngleMatching ??
-              r.metrics?.hogScore ??
-              "0%",
+            slant: r.metrics?.slantAngleMatching ?? "0%",
 
-            spacing:
-              r.metrics?.structuralSimilarity ??
-              r.metrics?.letterSpacingProportions ??
-              r.metrics?.structureScore ??
-              "0%",
+            spacing: r.metrics?.letterSpacingProportions ?? "0%",
 
-            justification: r.justification ?? "No forensic analysis available",
+            justification: r.justification ?? "No analysis available",
           });
         }
-
-        setLoading(false);
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error(err);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    load();
   }, [id]);
 
-  const handleDelete = async (id) => {
+  const handleDelete = async () => {
     if (!confirm("Delete this report?")) return;
 
-    await fetch(`/api/compare/delete?id=${id}`, {
+    await fetch(`/api/compare/${id}`, {
       method: "DELETE",
     });
 
@@ -88,7 +76,7 @@ function ResultsContent() {
 
 export default function ResultsPage() {
   return (
-    <Suspense>
+    <Suspense fallback={null}>
       <ResultsContent />
     </Suspense>
   );

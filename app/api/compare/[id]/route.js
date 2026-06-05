@@ -3,32 +3,25 @@ import dbConnect from "@/lib/db";
 import Comparison from "@/models/Comparison";
 import { auth } from "@clerk/nextjs/server";
 
-export async function DELETE(_request, { params }) {
+export async function DELETE(req, { params }) {
   try {
     const { userId } = await auth();
     if (!userId)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     await dbConnect();
-    const { id } = params;
 
-    const deletedDocument = await Comparison.findOneAndDelete({
-      _id: id,
+    const deleted = await Comparison.findOneAndDelete({
+      _id: params.id,
       userId,
     });
 
-    if (!deletedDocument) {
-      return NextResponse.json({ error: "Record not found" }, { status: 404 });
+    if (!deleted) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "Deleted successfully",
-    });
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
