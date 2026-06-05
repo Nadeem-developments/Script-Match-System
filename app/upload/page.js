@@ -16,6 +16,33 @@ export default function UploadPage() {
 
   const videoRef = useRef(null);
 
+  // =========================
+  // IMAGE COMPRESSOR (IMPORTANT)
+  // =========================
+  const compressImage = (base64, quality = 0.6) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64;
+
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const size = 600;
+
+        canvas.width = size;
+        canvas.height = size;
+
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, size, size);
+
+        const compressed = canvas.toDataURL("image/jpeg", quality);
+        resolve(compressed);
+      };
+    });
+  };
+
+  // =========================
+  // CAMERA START
+  // =========================
   const startCamera = async (docNum) => {
     setActiveDoc(docNum);
 
@@ -30,33 +57,51 @@ export default function UploadPage() {
         videoRef.current.srcObject = stream;
       }
     } catch (err) {
-      alert("Camera access blocked!");
+      alert("Camera access denied!");
     }
   };
 
-  const captureImage = () => {
+  // =========================
+  // CAPTURE IMAGE (MOBILE SAFE)
+  // =========================
+  const captureImage = async () => {
     const canvas = document.createElement("canvas");
     canvas.width = 600;
     canvas.height = 600;
 
     const ctx = canvas.getContext("2d");
+
     ctx.drawImage(videoRef.current, 0, 0, 600, 600);
 
-    const data = canvas.toDataURL("image/jpeg");
+    let image = canvas.toDataURL("image/jpeg", 0.7);
 
-    if (activeDoc === 1) setDoc1(data);
-    else setDoc2(data);
+    // 🔥 compress again (fix mobile network error)
+    image = await compressImage(image, 0.5);
 
+    if (activeDoc === 1) setDoc1(image);
+    else setDoc2(image);
+
+    // stop camera stream
     const stream = videoRef.current?.srcObject;
     if (stream) stream.getTracks().forEach((t) => t.stop());
 
     setShowCamera(false);
   };
 
+  // =========================
+  // RUN ANALYSIS
+  // =========================
   const handleRunAnalysis = async () => {
     setLoading(true);
 
     try {
+      // safety check (VERY IMPORTANT)
+      if (!doc1 || !doc2) {
+        alert("Please upload both documents");
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch("/api/compare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,16 +120,20 @@ export default function UploadPage() {
         setStep(1);
       }
     } catch (err) {
-      alert("Network Error");
+      console.error(err);
+      alert("Network Error (Try again)");
       setStep(1);
     } finally {
       setLoading(false);
     }
   };
 
+  // =========================
+  // UI
+  // =========================
   return (
     <div className='max-w-2xl mx-auto p-6 mt-10'>
-      {/* STEP INDICATOR */}
+      {/* STEP BAR */}
       <div className='flex gap-2 mb-10'>
         {[1, 2, 3].map((i) => (
           <div
@@ -96,7 +145,7 @@ export default function UploadPage() {
         ))}
       </div>
 
-      <div className='bg-white/40 backdrop-blur-3xl border p-10 rounded-[48px] shadow-2xl min-h-500px'>
+      <div className='bg-white/40 backdrop-blur-3xl border p-10 rounded-[48px] shadow-2xl min-h-[500px]'>
         {/* CAMERA VIEW */}
         {showCamera ? (
           <div className='space-y-4'>
@@ -104,7 +153,7 @@ export default function UploadPage() {
               ref={videoRef}
               autoPlay
               playsInline
-              className='rounded-3xl w-full aspect-square object-cover bg-black'
+              className='w-full aspect-square object-cover bg-black rounded-3xl'
             />
 
             <button
@@ -116,6 +165,7 @@ export default function UploadPage() {
         ) : (
           step < 3 && (
             <div className='space-y-8'>
+              {/* TITLE */}
               <h2 className='text-3xl font-black text-center'>
                 {step === 1
                   ? "Step 1: Baseline Sample"
@@ -149,12 +199,14 @@ export default function UploadPage() {
 
               {/* ACTIONS */}
               <div className='grid grid-cols-2 gap-4'>
+                {/* FILE UPLOAD */}
                 <label className='bg-white py-4 rounded-2xl border flex flex-col items-center cursor-pointer'>
                   📁
                   <span className='text-xs font-bold'>Upload</span>
                   <input
                     type='file'
                     className='hidden'
+                    accept='image/*'
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
@@ -169,6 +221,7 @@ export default function UploadPage() {
                   />
                 </label>
 
+                {/* CAMERA */}
                 <button
                   onClick={() => startCamera(step)}
                   className='bg-white py-4 rounded-2xl border flex flex-col items-center'>
@@ -186,17 +239,17 @@ export default function UploadPage() {
                   ? "Processing..."
                   : step === 1
                     ? "Continue"
-                    : "Run Analysis"}
+                    : "Run AI Analysis"}
               </button>
             </div>
           )
         )}
 
-        {/* LOADING STEP */}
+        {/* LOADING SCREEN */}
         {loading && step === 3 && (
           <div className='py-20 text-center'>
             <div className='w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto' />
-            <p className='mt-4 font-bold'>Analyzing Handwriting...</p>
+            <p className='mt-4 font-bold'>Processing Handwriting Analysis...</p>
           </div>
         )}
       </div>
